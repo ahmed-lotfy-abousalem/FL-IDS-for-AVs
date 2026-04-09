@@ -1,0 +1,41 @@
+# =====================================================================
+# For a full TOML configuration guide, check the Flower docs:
+# https://flower.ai/docs/framework/how-to-configure-pyproject-toml.html
+# =====================================================================
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "av"
+version = "1.0.0"
+description = "Fine-Tuning Federated Learning-based Intrusion Detection System for Transportation IoT"
+license = "Apache-2.0"
+dependencies = [
+    "flwr>=1.7.0",
+    "tensorflow==2.15.0", # Fixed the version to resolve the protobuf conflict
+    "pandas",
+    "scikit-learn"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[tool.flwr.app]
+publisher = "Lotfy"
+# This section defines the modules and objects to be used.
+server = "av.server_app:app"
+client = "av.client_app:client_app"
+
+# This section tells the `flwr run` command what to execute.
+[tool.flwr.app.components]
+serverapp = "av.server_app:app"
+clientapp = "av.client_app:client_app"
+
+[tool.flwr.federations.local-simulation]
+options.num-supernodes = 4
+
+# Declare a default federation to run when no name is provided
+[tool.flwr.federations]
+default = "local-simulation"
