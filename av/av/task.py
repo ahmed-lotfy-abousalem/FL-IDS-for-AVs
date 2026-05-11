@@ -10,7 +10,10 @@ from typing import Tuple
 
 _CURRENT_DIR  = os.path.dirname(os.path.abspath(__file__))            # av/av/
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(_CURRENT_DIR))         # project root
-_CAN_DIR      = os.path.join(_PROJECT_ROOT, "gp", "can_processed")    # gp/can_processed/
+_CAN_DIR      = os.environ.get(
+    "GIDS_DATA_DIR",
+    os.path.join(_PROJECT_ROOT, "gp", "can_processed"),  # fallback
+)
 
 # Client ID → attack-type name mapping (one client per attack dataset)
 CLIENT_DATASETS = {

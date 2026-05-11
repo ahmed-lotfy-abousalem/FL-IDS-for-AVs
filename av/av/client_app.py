@@ -122,12 +122,9 @@ class FlowerClient(fl.client.NumPyClient):
 # ---------------------------------------------------------------------------
 
 def client_fn(context: fl.common.Context) -> fl.client.Client:
-    node_id = int(context.node_id) % _N_CLIENTS
+    raw = context.node_config.get("node_id")
+    node_id = int(raw) if raw is not None else int(context.node_id) % _N_CLIENTS
     return FlowerClient(node_id).to_client()
 
-
-# ---------------------------------------------------------------------------
-# Flower ClientApp entry point
-# ---------------------------------------------------------------------------
 
 client_app = fl.client.ClientApp(client_fn=client_fn)

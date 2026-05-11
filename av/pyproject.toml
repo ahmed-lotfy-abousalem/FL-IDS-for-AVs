@@ -33,9 +33,30 @@ client = "av.client_app:client_app"
 serverapp = "av.server_app:app"
 clientapp = "av.client_app:client_app"
 
-[tool.flwr.federations.local-simulation]
-options.num-supernodes = 4
 
-# Declare a default federation to run when no name is provided
-[tool.flwr.federations]
-default = "local-simulation"
+#######################################################################
+# CONFIGURATION MIGRATION NOTICE:
+#
+# What was previously called "federation config" for SuperLink
+# connections in pyproject.toml has been renamed and moved.
+#
+# These settings are now **SuperLink connection configuration**
+# and are defined in the Flower configuration file.
+#
+# The entries below are commented out intentionally and are kept
+# only as a migration reference.
+#
+# Docs: https://flower.ai/docs/framework/ref-flower-configuration.html
+#######################################################################
+
+# [tool.flwr.federations.local-simulation]
+# options.num-supernodes = 4
+
+# # Declare a default federation to run when no name is provided
+# [tool.flwr.federations]
+# default = "local-simulation"
+
+# [tool.flwr.federations.distributed]
+# address = "192.168.137.1:9093"
+# insecure = true
+# options.num-supernodes = 4
