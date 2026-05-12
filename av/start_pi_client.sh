@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # start_pi_client.sh  —  Run ON the Raspberry Pi
-#   ssh ids@192.168.137.157
+#   ssh ids@192.168.1.150
 #   cd /home/ids/gids-fl/av
 #   bash start_pi_client.sh
 #
@@ -12,13 +12,14 @@
 
 set -e
 
-SUPERLINK="192.168.137.1:9092"
+SUPERLINK="192.168.1.23:9092"
 DATA_DIR="/home/ids/gids-fl/gp/can_processed"
 VENV="/home/ids/gids-fl/fl_env/bin/activate"
+MQTT_HOST="192.168.1.23"
 
 if [ ! -f "$DATA_DIR/gear_X_train.npy" ]; then
     echo "ERROR: Gear dataset not found at $DATA_DIR"
-    echo "Copy from laptop:  scp 'D:\\GP\\gp\\can_processed\\gear_*' ids@192.168.137.157:$DATA_DIR/"
+    echo "Copy from laptop:  scp 'D:\\GP\\gp\\can_processed\\gear_*' ids@192.168.1.150:$DATA_DIR/"
     exit 1
 fi
 
@@ -26,6 +27,7 @@ echo "Activating virtual environment..."
 source "$VENV"
 
 export GIDS_DATA_DIR="$DATA_DIR"
+export GIDS_MQTT_HOST="$MQTT_HOST"
 
 echo ""
 echo "Starting Pi SuperNode — Client 3 (Gear)"

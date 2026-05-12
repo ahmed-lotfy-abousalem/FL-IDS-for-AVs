@@ -1,3 +1,23 @@
 fl_env/
 gp/
 diagrams/
+
+# ── Sensitive credentials ────────────────────────────────────
+gids_fcm_key.json
+*service-account*.json
+
+# ── Trained model weights (regenerate with run_local.ps1) ────
+*.pkl
+
+# ── Temporary debug/setup scripts ────────────────────────────
+_fix_pi.py
+_test_port.py
+_debug_supernode.py
+_check_versions.py
+
+# ── Flower local state ────────────────────────────────────────
+.flwr/
+
+# ── Python ───────────────────────────────────────────────────
+__pycache__/
+*.py[cod]

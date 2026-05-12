@@ -1,6 +1,6 @@
 # ============================================================
 # start_superlink.ps1  —  Run from d:\GP\av\
-# Starts the Flower SuperLink on the laptop (192.168.137.1)
+# Starts the Flower SuperLink on the laptop (192.168.1.23)
 #   Port 9091 — ServerAppIo  (internal ServerApp process)
 #   Port 9092 — Fleet API    (SuperNodes connect here)
 #   Port 9093 — Control API  (flwr run submits app here)
@@ -9,8 +9,10 @@
 Write-Host "Activating virtual environment..."
 & "d:\GP\fl_env\Scripts\Activate.ps1"
 
-$env:GIDS_DATA_DIR = "d:\GP\gp\can_processed"
-Write-Host "GIDS_DATA_DIR = $env:GIDS_DATA_DIR"
+$env:GIDS_DATA_DIR  = "d:\GP\gp\can_processed"
+$env:GIDS_FCM_CREDS = "d:\GP\gids_fcm_key.json"
+Write-Host "GIDS_DATA_DIR  = $env:GIDS_DATA_DIR"
+Write-Host "GIDS_FCM_CREDS = $env:GIDS_FCM_CREDS"
 
 Write-Host ""
 Write-Host "Starting Flower SuperLink"

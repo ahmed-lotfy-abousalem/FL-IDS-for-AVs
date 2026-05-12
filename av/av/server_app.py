@@ -11,11 +11,24 @@ The server:
      detection: flag as attack if D1(x) > 0.5 OR D2(x) < 0.5.
 """
 
+import os
+import pickle
 import flwr as fl
 import numpy as np
 from flwr.server.strategy import FedAvg
 from flwr.common import ndarrays_to_parameters
 from typing import Dict, List, Optional, Tuple
+
+_NUM_ROUNDS = int(os.environ.get("GIDS_NUM_ROUNDS", "15"))
+
+def _save_dir() -> str:
+    data_dir = os.environ.get("GIDS_DATA_DIR", "")
+    if not data_dir:
+        data_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            "gp", "can_processed",
+        )
+    return os.path.join(os.path.dirname(data_dir), "saved_model")
 
 from .task import (
     load_server_data,
@@ -25,6 +38,7 @@ from .task import (
     build_gan,
     train_gan_epochs,
 )
+from .notify import publish_round_status
 
 # ---------------------------------------------------------------------------
 # Server-side data and models
@@ -96,6 +110,17 @@ def evaluate_fn(
 
     print(f"[Server  Round {server_round:2d}]  "
           f"D1 loss={loss:.4f}  GIDS accuracy={accuracy:.4f}")
+    publish_round_status(server_round, loss, accuracy)
+
+    if server_round == _NUM_ROUNDS:
+        save_dir = _save_dir()
+        os.makedirs(save_dir, exist_ok=True)
+        path = os.path.join(save_dir, "gids_weights.pkl")
+        with open(path, "wb") as f:
+            pickle.dump({"d1": d1_model.get_weights(),
+                         "d2": d2_model.get_weights()}, f)
+        print(f"[Server] Final weights saved → {path}")
+
     return loss, {"accuracy": accuracy}
 
 
@@ -114,6 +139,6 @@ strategy = FedAvg(
 )
 
 app = fl.server.ServerApp(
-    config=fl.server.ServerConfig(num_rounds=3),
+    config=fl.server.ServerConfig(num_rounds=_NUM_ROUNDS),
     strategy=strategy,
 )

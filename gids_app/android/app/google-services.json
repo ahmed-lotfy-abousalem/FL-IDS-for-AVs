@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "759654645119",
+    "project_id": "gids-monitor",
+    "storage_bucket": "gids-monitor.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:759654645119:android:6a16bad7319ab8b0aaee4a",
+        "android_client_info": {
+          "package_name": "com.gids.gids_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD0vuObXHw7qSsP-gehMr_0fCmgPPBm2sE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

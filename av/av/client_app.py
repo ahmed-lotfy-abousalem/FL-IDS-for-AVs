@@ -30,6 +30,7 @@ from .task import (
     train_gan_epochs,
     CLIENT_DATASETS,
 )
+from .notify import publish_attack
 
 _N_CLIENTS = len(CLIENT_DATASETS)   # 4
 
@@ -41,6 +42,7 @@ _N_CLIENTS = len(CLIENT_DATASETS)   # 4
 class FlowerClient(fl.client.NumPyClient):
 
     def __init__(self, node_id: int) -> None:
+        self.node_id = node_id
         self.X_train, self.y_train = load_can_data(node_id, split="train")
         self.X_test,  self.y_test  = load_can_data(node_id, split="test")
 
@@ -114,6 +116,16 @@ class FlowerClient(fl.client.NumPyClient):
         accuracy = float(np.mean(y_pred == self.y_test.astype(int)))
 
         loss, _ = self.d1.evaluate(self.X_test, self.y_test, verbose=0)
+
+        attack_pct = float(np.mean(y_pred))
+        if attack_pct > 0.05:  # publish when >5% of test samples are flagged
+            publish_attack(
+                client_id=self.node_id,
+                dataset=CLIENT_DATASETS[self.node_id],
+                attack_pct=attack_pct,
+                server_round=config.get("current_round", 0),
+            )
+
         return loss, len(self.X_test), {"accuracy": accuracy}
 
 

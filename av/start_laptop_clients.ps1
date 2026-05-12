@@ -8,7 +8,7 @@
 # ============================================================
 
 $venv      = "d:\GP\fl_env\Scripts\Activate.ps1"
-$superlink = "192.168.137.1:9092"
+$superlink = "192.168.1.23:9092"
 
 function Start-SuperNode($nodeId, $label, $clientappioPort) {
     $cmd = "& '$venv'; " +
