@@ -10,7 +10,7 @@
 # ============================================================
 
 param(
-    [int]$Rounds = 15
+    [int]$Rounds = 40
 )
 
 Write-Host "Activating virtual environment..."

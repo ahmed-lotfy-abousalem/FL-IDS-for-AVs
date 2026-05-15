@@ -119,7 +119,7 @@ def evaluate_fn(
         with open(path, "wb") as f:
             pickle.dump({"d1": d1_model.get_weights(),
                          "d2": d2_model.get_weights()}, f)
-        print(f"[Server] Final weights saved → {path}")
+        print(f"[Server] Final weights saved -> {path}")
 
     return loss, {"accuracy": accuracy}
 

@@ -2,17 +2,21 @@
 """
 GIDS CAN Inference Engine  —  runs on the Client Pi (192.168.1.150)
 
-Subscribes to gids/can_frames, builds non-overlapping 29-frame sliding
-windows (319 features), loads D1+D2 weights from gids_weights.pkl, runs
-combined GIDS detection, and publishes results to gids/attack and gids/status.
+Reads CAN frames from the physical MCP2515 bus (--source can, default) or
+from MQTT (--source mqtt), builds non-overlapping 29-frame windows (319
+features), loads D1+D2 weights, runs GIDS combined detection, and publishes
+results to gids/attack and gids/status for the Flutter dashboard.
 
 Usage:
-  python3 can_inference.py
-  python3 can_inference.py --broker 192.168.1.23 --weights ~/gids-fl/gp/saved_model/gids_weights.pkl
-  GIDS_DATA_DIR=/home/ids/gids-fl/gp/can_processed python3 can_inference.py
+  # Physical CAN bus (MCP2515 on can0) — requires sudo for AF_CAN socket:
+  sudo python3 can_inference.py
+  sudo python3 can_inference.py --iface can0 --broker 192.168.1.23
+
+  # MQTT source (legacy / no hardware):
+  python3 can_inference.py --source mqtt
 
 Topics:
-  Subscribe:  gids/can_frames  — raw CAN frames from the replayer / live bus
+  Subscribe:  gids/can_frames  — (mqtt source only)
   Publish:    gids/attack      — attack detection events  (every REPORT_EVERY windows)
               gids/status      — inference stats for the dashboard
 """
@@ -21,6 +25,8 @@ import argparse
 import json
 import os
 import pickle
+import socket
+import struct
 import sys
 import time
 
@@ -142,10 +148,12 @@ def load_models(weights_path: str):
 
 class GidsInference:
 
-    def __init__(self, d1, d2, broker: str, port: int, client_id: int) -> None:
+    def __init__(self, d1, d2, broker: str, port: int, client_id: int,
+                 source: str = "can") -> None:
         self.d1        = d1
         self.d2        = d2
         self.client_id = client_id
+        self._source   = source        # "can" or "mqtt"
 
         self._frame_buf  = []          # accumulate frames until WINDOW_SIZE
         self._X_batch    = []          # accumulate windows until REPORT_EVERY
@@ -167,8 +175,11 @@ class GidsInference:
 
     def _on_connect(self, client, userdata, flags, rc, properties=None):
         if rc == 0:
-            client.subscribe("gids/can_frames", qos=0)
-            print("[GIDS] Connected to broker — listening on gids/can_frames")
+            if self._source == "mqtt":
+                client.subscribe("gids/can_frames", qos=0)
+                print("[GIDS] Connected to broker — listening on gids/can_frames")
+            else:
+                print("[GIDS] Connected to broker (publish-only for CAN source)")
         else:
             print(f"[GIDS] Broker connect error: rc={rc}")
 
@@ -177,7 +188,9 @@ class GidsInference:
             frame = json.loads(msg.payload)
         except Exception:
             return
+        self._process_frame(frame)
 
+    def _process_frame(self, frame: dict) -> None:
         self._frame_buf.append(frame)
         if len(self._frame_buf) < WINDOW_SIZE:
             return
@@ -242,12 +255,42 @@ class GidsInference:
         self._ds_buf  = []
 
     def run(self) -> None:
-        print("[GIDS] Inference engine running. Press Ctrl-C to stop.")
+        print("[GIDS] Inference engine running (MQTT source). Press Ctrl-C to stop.")
         try:
             self._mqc.loop_forever()
         except KeyboardInterrupt:
             print("\n[GIDS] Stopped.")
         finally:
+            self._mqc.loop_stop()
+            self._mqc.disconnect()
+
+    # ── CAN bus source ────────────────────────────────────────────────────
+
+    _CAN_FMT = "=IB3x8s"   # 16 bytes: can_id (4) + dlc (1) + pad (3) + data (8)
+
+    def run_can(self, iface: str = "can0") -> None:
+        sock = socket.socket(socket.AF_CAN, socket.SOCK_RAW, socket.CAN_RAW)
+        sock.bind((iface,))
+        self._mqc.loop_start()   # non-blocking: handles publish while we block on recv
+        print(f"[GIDS] Reading CAN frames from {iface}. Press Ctrl-C to stop.")
+        try:
+            while True:
+                raw = sock.recv(16)
+                can_id_raw, dlc, data = struct.unpack(self._CAN_FMT, raw)
+                can_id = can_id_raw & 0x1FFFFFFF   # strip EFF/RTR/ERR flags
+                dlc    = min(dlc, 8)
+                frame  = {
+                    "ts":      time.time(),
+                    "id":      format(can_id, 'X'),
+                    "dlc":     dlc,
+                    "data":    list(data[:dlc]) + [0] * (8 - dlc),
+                    "dataset": "live",
+                }
+                self._process_frame(frame)
+        except KeyboardInterrupt:
+            print("\n[GIDS] Stopped.")
+        finally:
+            sock.close()
             self._mqc.loop_stop()
             self._mqc.disconnect()
 
@@ -258,6 +301,10 @@ class GidsInference:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="GIDS CAN Inference Engine")
+    ap.add_argument("--source",    default="can", choices=["can", "mqtt"],
+                    help="Frame source: 'can' = MCP2515 bus (default), 'mqtt' = MQTT topic")
+    ap.add_argument("--iface",     default="can0",
+                    help="CAN interface name when --source can (default: can0)")
     ap.add_argument("--broker",    default=os.environ.get("GIDS_MQTT_HOST", "192.168.1.23"),
                     help="MQTT broker IP (default: 192.168.1.23)")
     ap.add_argument("--port",      type=int,
@@ -268,12 +315,19 @@ def main() -> None:
                     help="Client ID reported in gids/attack messages (default: 3)")
     args = ap.parse_args()
 
+    print(f"[GIDS] Source:    {args.source}" +
+          (f" ({args.iface})" if args.source == "can" else ""))
     print(f"[GIDS] Broker:    {args.broker}:{args.port}")
     print(f"[GIDS] Weights:   {args.weights}")
     print(f"[GIDS] Client ID: {args.client_id}")
 
     d1, d2 = load_models(args.weights)
-    GidsInference(d1, d2, args.broker, args.port, args.client_id).run()
+    engine = GidsInference(d1, d2, args.broker, args.port, args.client_id,
+                           source=args.source)
+    if args.source == "can":
+        engine.run_can(args.iface)
+    else:
+        engine.run()
 
 
 if __name__ == "__main__":
