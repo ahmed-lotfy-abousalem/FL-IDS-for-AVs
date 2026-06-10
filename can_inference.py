@@ -154,6 +154,7 @@ class GidsInference:
         self.d2        = d2
         self.client_id = client_id
         self._source   = source        # "can" or "mqtt"
+        self._dataset  = "live"        # updated via gids/dataset from the replayer
 
         self._frame_buf  = []          # accumulate frames until WINDOW_SIZE
         self._X_batch    = []          # accumulate windows until REPORT_EVERY
@@ -175,6 +176,7 @@ class GidsInference:
 
     def _on_connect(self, client, userdata, flags, rc, properties=None):
         if rc == 0:
+            client.subscribe("gids/dataset", qos=1)   # always track attack type
             if self._source == "mqtt":
                 client.subscribe("gids/can_frames", qos=0)
                 print("[GIDS] Connected to broker — listening on gids/can_frames")
@@ -184,6 +186,10 @@ class GidsInference:
             print(f"[GIDS] Broker connect error: rc={rc}")
 
     def _on_frame(self, client, userdata, msg):
+        if msg.topic == "gids/dataset":
+            self._dataset = msg.payload.decode().strip()
+            print(f"[GIDS] Attack type: {self._dataset}")
+            return
         try:
             frame = json.loads(msg.payload)
         except Exception:
@@ -209,7 +215,7 @@ class GidsInference:
 
     def _run_inference(self) -> None:
         X = np.stack(self._X_batch, axis=0)          # (N, 319, 1)
-        dataset = self._ds_buf[-1]
+        dataset = self._dataset if self._source == "can" else self._ds_buf[-1]
 
         d1_prob = self.d1.predict(X, verbose=0).flatten()   # (N,)
         d2_prob = self.d2.predict(X, verbose=0).flatten()

@@ -162,14 +162,26 @@ def main() -> None:
 
     if args.interface == "can":
         sender, resource = make_can_sender(args.iface)
+        # MQTT client for publishing dataset label only (no frame transport)
+        mqc_meta = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="gids-replayer-meta")
+        try:
+            mqc_meta.connect(args.broker, args.port, keepalive=60)
+            mqc_meta.loop_start()
+            print(f"Metadata MQTT connected to {args.broker}:{args.port}")
+        except Exception as e:
+            print(f"Warning: metadata MQTT unavailable ({e}) — attack type won't show in app")
+            mqc_meta = None
     else:
         sender, resource = make_mqtt_sender(args.broker, args.port, args.topic)
+        mqc_meta = None
 
     datasets = list(DATASETS) if args.dataset == "all" else [args.dataset]
 
     try:
         while True:
             for name in datasets:
+                if mqc_meta:
+                    mqc_meta.publish("gids/dataset", name, qos=1, retain=True)
                 df = load_csv(name, args.data_dir)
                 replay(df, sender, args.speed, name)
             if not args.loop:
@@ -178,6 +190,9 @@ def main() -> None:
     except KeyboardInterrupt:
         print("\nStopped.")
     finally:
+        if mqc_meta:
+            mqc_meta.loop_stop()
+            mqc_meta.disconnect()
         if hasattr(resource, 'loop_stop'):
             resource.loop_stop()
             resource.disconnect()
